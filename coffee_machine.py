@@ -103,7 +103,7 @@ def show_resources(resources):
     :param resources: Dictionary with keys: coffee_g, water_ml, milk_ml representing current machine resources
     """   
     print(f"\n[Machine Resources]")
-    print(f"Coffee: " + Fore.GREEN + f"{resources['coffee_g']}g" + Fore.RESET + f" | Water: " + Fore.GREEN + f"{resources['water_ml']}ml" + Fore.RESET + f" | Milk: " + Fore.GREEN + f"{resources['milk_ml']}ml\n")
+    print(f"Coffee: {Fore.GREEN}{resources['coffee_g']}g{Fore.RESET} | Water: {Fore.GREEN}{resources['water_ml']}ml{Fore.RESET} | Milk: {Fore.GREEN}{resources['milk_ml']}ml{Fore.RESET}\n")
 
 def format_money(amount_cents):
     """
@@ -125,11 +125,11 @@ def select_drink(drinks_list):
     :return: The selected drink dictionary
     """
     clear_console()
-    print(Fore.GREEN + f"☕ Welcome to the Coffee Machine ☕\n")
+    print(f"☕{Fore.LIGHTBLUE_EX} Welcome to the Coffee Machine ☕{Fore.RESET}\n")
     print(f"Please select a drink:\n")
 
     for i, drink in enumerate(drinks_list, start=1):
-        print(Fore.CYAN + f" [{i}] {drink['name']:10} - {format_money(drink['price_cents'])}")
+        print(f"{Fore.LIGHTCYAN_EX} [{i}] {drink['name']:10} - {format_money(drink['price_cents'])}{Fore.RESET}")
 
     while True:
         try:
@@ -137,7 +137,7 @@ def select_drink(drinks_list):
             if not 1 <= choice <= len(drinks_list):
                 raise ValueError
             selected = drinks_list[choice-1]
-            print(f"\nYou selected: " + Fore.GREEN + f"{selected['name']} - {format_money(selected['price_cents'])}")
+            print(f"\nYou selected: {Fore.GREEN}{selected['name']} - {format_money(selected['price_cents'])}{Fore.RESET}")
             return selected
         except ValueError:
             print(f"Invalid input! Choose a number from 1 to {len(drinks_list)}.")
@@ -185,62 +185,55 @@ def refill_resource(resource, resources):
     resources[mapping[resource]] = INIT_EKSPRESS_RESOURCES[mapping[resource]]
     print(f"{resource.capitalize()} refilled!")
 
-# ---------------------- PAYMENT ----------------------
-def pay_for_drink(drink, express_coins):
+# ---------------------- PAYMENT ----------------------    
+def pay_for_drink_ui(drink, express_coins):
     """
-    Handles the payment process for the selected drink.
-    Prompts the user to insert coins until the total amount is sufficient.
+    Handles user interaction for inserting coins and making payment.
     
-    :param drink: Drink dictionary with keys: name, coffee_g, water_ml, milk_ml, price_cents
-    :param express_coins: Dictionary with coin denominations as keys (in cents) and their counts as values representing the machine's coin inventory
-    :return: True if payment is successful, False if cancelled or failed
+    :param drink: Drink dictionary with 'name' and 'price_cents'
+    :param express_coins: Machine coin inventory {coin_cents: count}
+    :return: True if payment succeeded, False otherwise
     """
     price_cents = drink['price_cents']
-
-    print(f"\n💰 Please insert "+Fore.YELLOW + f"{format_money(price_cents)}")
-
-    denominations_cents = sorted(
-        [c for c, count in express_coins.items() if count > 0],
-        reverse=True
-    )
+    print(f"\n💰 Please insert {Fore.GREEN}{format_money(price_cents)}{Fore.RESET}")
     
-    if not denominations_cents:
-        print(Fore.RED + "❌ Machine has no coins available. Cannot accept payment.")
+
+    available_coins = sorted([c for c, count in express_coins.items() if count > 0], reverse=True)
+    if not available_coins:
+        print(f"{Fore.RED}❌ Machine has no coins available. Cannot accept payment.{Fore.RESET}")
         return False
 
-    print(f"Accepted coins:", Fore.GREEN + ", ".join([format_money(c) for c in denominations_cents]))
-
+    print(f"Accepted coins: {Fore.GREEN}{', '.join([format_money(c) for c in available_coins])}{Fore.RESET}")
     inserted_cents = []
-    total_cents = 0
+    total_inserted = 0
 
-    while total_cents < price_cents:
-        print(f"Paid: " + Fore.GREEN + f"{format_money(total_cents)}" + Fore.RESET + f" | Remaining: " + Fore.LIGHTYELLOW_EX + f"{format_money(price_cents - total_cents)}")
+    while total_inserted < price_cents:
+        print(f"Paid: {Fore.GREEN}{format_money(total_inserted)}{Fore.RESET} | Remaining: {Fore.LIGHTYELLOW_EX}{format_money(price_cents - total_inserted)}{Fore.RESET}")
         try:
-            coin = float(input("Insert coin (" + Fore.RED + f"0 to cancel" + Fore.RESET + "): "))
+            coin = float(input(f"Insert coin ({Fore.RED}0 to cancel{Fore.RESET}) "))
             coin_cents = int(round(coin * 100))
-
+            
             if coin_cents == 0:
                 print(Fore.RED + "Payment cancelled.")
                 if inserted_cents:
-                    print("💸 Refunding: " + Fore.YELLOW + f"{format_money(sum(inserted_cents))} -> {[c/100 for c in inserted_cents]}")
+                    print(f"💸 Refunding: {Fore.YELLOW}{format_money(sum(inserted_cents))}{Fore.RESET} -> {[c/100 for c in inserted_cents]}")
                 return False
 
-            if coin_cents not in denominations_cents:
-                print(Fore.RED + "Invalid coin!")
+            if coin_cents not in available_coins:
+                print(f"{Fore.RED}Invalid coin!{Fore.RESET}")
                 continue
 
             inserted_cents.append(coin_cents)
-            total_cents += coin_cents
+            total_inserted += coin_cents
 
         except ValueError:
-            print(Fore.RED + "Invalid input!")
+            print(f"{Fore.RED}Invalid input!{Fore.RESET}")
 
-    print(f"✅ Total paid: " + Fore.GREEN + f"{format_money(total_cents)}")
-
+    # Payment done, try to process
     try:
-        change_cents = calculate_change(price_cents, inserted_cents, express_coins)
-        if change_cents:
-            print(f"💸 Change returned: " + Fore.YELLOW + f"{format_money(sum(change_cents))} -> {[c/100 for c in change_cents]}")
+        change = process_payment(price_cents, inserted_cents, express_coins)
+        if change:
+            print(f"💸 Change returned: {Fore.YELLOW}{format_money(sum(change))}{Fore.RESET} -> {[c/100 for c in change]}")
         else:
             print("💸 No change needed.")
         return True
@@ -248,31 +241,39 @@ def pay_for_drink(drink, express_coins):
         print(e)
         print("💸 Refunding inserted coins.")
         return False
-
-def calculate_change(price_cents, inserted_cents, express_coins):
-    """
-    Calculates the change to return to the customer after payment.
-    Uses a greedy algorithm to determine the optimal combination of coins to return.
     
-    :param price_cents: Price of the drink in cents
-    :param inserted_cents: List of coin denominations (in cents) that the customer has inserted
-    :param express_coins: Dictionary with coin denominations as keys (in cents) and their counts as values representing the machine's coin inventory
-    :return: List of coin denominations (in cents) to return as change
-    :raises ValueError: If exact change cannot be returned with the available coins
+def process_payment(price_cents, inserted_cents, express_coins):
     """
-    temp_coins = copy.deepcopy(express_coins)
+    Processes the payment logic for a given price.
+    Updates express_coins and returns the change if payment is sufficient.
 
+    :param price_cents: Price of the drink in cents
+    :param inserted_cents: List of inserted coins in cents
+    :param express_coins: Dictionary {coin_cents: count} representing machine coins
+    :return: List of change coins in cents
+    :raises ValueError: if not enough money or cannot return exact change
+    """
+    temp_coins = express_coins.copy()
+    
+    # Add inserted coins to temp inventory
     for c in inserted_cents:
-        temp_coins[c] += 1
+        temp_coins[c] = temp_coins.get(c, 0) + 1
 
-    change_cents = sum(inserted_cents) - price_cents
+    total_inserted = sum(inserted_cents)
+    if total_inserted < price_cents:
+        raise ValueError("Not enough money inserted.")
+
+    change_cents = total_inserted - price_cents
     change_list = []
 
     if change_cents == 0:
+        # Exact payment, no change
+        express_coins.clear()
+        express_coins.update(temp_coins)
         return []
 
+    # Calculate change using greedy algorithm
     denominations = sorted(temp_coins.keys(), reverse=True)
-
     for denom in denominations:
         while change_cents >= denom and temp_coins[denom] > 0:
             temp_coins[denom] -= 1
@@ -280,11 +281,13 @@ def calculate_change(price_cents, inserted_cents, express_coins):
             change_list.append(denom)
 
     if change_cents != 0:
-        raise ValueError(Fore.RED + "❌ Cannot return exact change!")
+        raise ValueError("Cannot return exact change with available coins!")
 
+    # Update machine coins
     express_coins.clear()
     express_coins.update(temp_coins)
     return change_list
+
 
 # ---------------------- MAKE DRINK ----------------------
 def make_drink(drink, resources):
@@ -298,7 +301,7 @@ def make_drink(drink, resources):
     resources['coffee_g'] -= drink['coffee_g']
     resources['water_ml'] -= drink['water_ml']
     resources['milk_ml'] -= drink['milk_ml']
-    print(Fore.MAGENTA + f"\n☕ Enjoy your {drink['name']}!\n" + Fore.RESET)
+    print(f"\n☕{Fore.MAGENTA} Enjoy your {drink['name']}! {Fore.RESET}\n")
     show_resources(resources)
 
 # ---------------------- MAIN LOOP ----------------------
@@ -315,25 +318,25 @@ def main():
         drink = select_drink(drinks)
 
         if can_make_drink(drink, express_resources):
-            if pay_for_drink(drink, express_coins):
+            if pay_for_drink_ui(drink, express_coins):
                 make_drink(drink, express_resources)
         else:
             missing = check_what_missing(drink, express_resources)
             for r in missing:
                 resp = ""
                 while resp not in [YES, NO]:
-                    resp = input(f"Do you want to refill {r}? (" + Fore.GREEN + f"{YES}" + Fore.RESET + "/" + Fore.RED + f"{NO}" + Fore.RESET + "): ").lower()
+                    resp = input(f"Do you want to refill {r}? ({Fore.GREEN}{YES}{Fore.RESET}/{Fore.RED}{NO}{Fore.RESET}): ").lower()
                 if resp == YES:
                     refill_resource(r, express_resources)
                     show_resources(express_resources)
 
             if can_make_drink(drink, express_resources):
-                if pay_for_drink(drink, express_coins):
+                if pay_for_drink_ui(drink, express_coins):
                     make_drink(drink, express_resources)
 
         resp = ""
         while resp not in [YES, NO]:
-            resp = input(f"Do you want to make another drink? (" + Fore.GREEN + f"{YES}" + Fore.RESET + "/" + Fore.RED + f"{NO}" + Fore.RESET + "): ").lower()
+            resp = input(f"Do you want to make another drink? ({Fore.GREEN}{YES}{Fore.RESET}/{Fore.RED}{NO}{Fore.RESET}): ").lower()
         want_coffee = resp == YES
 
     save_state(express_resources, express_coins)
