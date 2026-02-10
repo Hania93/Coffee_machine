@@ -1,11 +1,75 @@
-from coffee_machine_data import drinks, express_resources, express_coins, INIT_EKSPRESS_RESOURCES
+from coffee_machine_data import drinks, express_resources as DEFAULT_RESOURCES, express_coins as DEFAULT_COINS, INIT_EKSPRESS_RESOURCES
 import os, json, copy
-from colorama import Fore, init
+from colorama import init, Fore, Style
 
 init(autoreset=True) 
 
+# ---------------------- CONSTANTS ----------------------
 YES = "yes"
 NO = "no"
+STATE_FILE = "machine_state.json"
+
+# ---------------------- UTILS ----------------------
+def save_state(resources, coins):
+    state = {
+        "resources": resources,
+        "coins": coins
+    }
+    with open(STATE_FILE, 'w', encoding='utf-8') as f:
+        json.dump(state, f, indent=2)
+    print("\n💾 Machine state saved.")
+
+def load_state(default_resources, default_coins):
+    if not os.path.exists(STATE_FILE):
+        print("No saved state found. Starting with initial resources and coins.")
+        return copy.deepcopy(default_resources), copy.deepcopy(default_coins)
+
+    try:
+        with open(STATE_FILE, 'r', encoding='utf-8') as f:
+            state = json.load(f)
+    except (json.JSONDecodeError, OSError) as e:
+        print("⚠ Error reading state file. Resetting to defaults.")
+        print(f"Reason: {e}")
+        return copy.deepcopy(default_resources), copy.deepcopy(default_coins)
+
+    if not isinstance(state, dict):
+        print("⚠ Invalid state format. Resetting to defaults.")
+        return copy.deepcopy(default_resources), copy.deepcopy(default_coins)
+
+    if "resources" not in state or "coins" not in state:
+        print("⚠ Missing keys in state file. Resetting to defaults.")
+        return copy.deepcopy(default_resources), copy.deepcopy(default_coins)
+
+    resources = state["resources"]
+    coins_raw = state["coins"]
+
+    required_resources_keys = {"coffee_g", "water_ml", "milk_ml"}
+    if not isinstance(resources, dict) or not required_resources_keys.issubset(resources.keys()):
+        print("⚠ Invalid resources data. Resetting to defaults.")
+        return copy.deepcopy(default_resources), copy.deepcopy(default_coins)
+
+    for key in required_resources_keys:
+        if not isinstance(resources.get(key), int) or resources[key] < 0:
+            print(f"⚠ Invalid resource value for '{key}'. Resetting to defaults.")
+            return copy.deepcopy(default_resources), copy.deepcopy(default_coins)
+        
+    if not isinstance(coins_raw, dict):
+        print("⚠ Invalid coins data. Resetting to defaults.")
+        return copy.deepcopy(default_resources), copy.deepcopy(default_coins)
+
+    coins = {}
+    for k, v in coins_raw.items():
+        try:
+            k_int = int(k)
+            if not isinstance(v, int) or v < 0:
+                raise ValueError
+            coins[k_int] = v
+        except ValueError:
+            print(f"⚠ Invalid coin entry: {k}:{v}. Resetting to defaults.")
+            return copy.deepcopy(default_resources), copy.deepcopy(default_coins)
+
+    print("💾 Machine state loaded (validated).")
+    return resources, coins
 
 def clear_console():
     os.system('cls' if os.name == 'nt' else 'clear')
@@ -17,6 +81,7 @@ def show_resources(resources):
 def format_money(amount_cents):
     return f"${amount_cents/100:.2f}"
 
+# ---------------------- DRINK SELECTION ----------------------
 def select_drink(drinks_list):
     clear_console()
     print(Fore.GREEN + f"☕ Welcome to the Coffee Machine ☕\n")
@@ -36,6 +101,7 @@ def select_drink(drinks_list):
         except ValueError:
             print(f"Invalid input! Choose a number from 1 to {len(drinks_list)}.")
 
+# ---------------------- RESOURCE MANAGEMENT ----------------------
 def can_make_drink(drink, resources):
     return (drink['coffee_g'] <= resources['coffee_g'] and
             drink['water_ml'] <= resources['water_ml'] and
@@ -58,6 +124,7 @@ def refill_resource(resource, resources):
     resources[mapping[resource]] = INIT_EKSPRESS_RESOURCES[mapping[resource]]
     print(f"{resource.capitalize()} refilled!")
 
+# ---------------------- PAYMENT ----------------------
 def pay_for_drink(drink, express_coins):
     price_cents = drink['price_cents']
 
@@ -140,6 +207,7 @@ def calculate_change(price_cents, inserted_cents, express_coins):
     express_coins.update(temp_coins)
     return change_list
 
+# ---------------------- MAKE DRINK ----------------------
 def make_drink(drink, resources):
     resources['coffee_g'] -= drink['coffee_g']
     resources['water_ml'] -= drink['water_ml']
@@ -147,8 +215,12 @@ def make_drink(drink, resources):
     print(Fore.MAGENTA + f"\n☕ Enjoy your {drink['name']}!\n" + Fore.RESET)
     show_resources(resources)
 
+# ---------------------- MAIN LOOP ----------------------
 def main():
+    express_resources, express_coins = load_state(DEFAULT_RESOURCES, DEFAULT_COINS)
+
     want_coffee = True
+
     while want_coffee:
         drink = select_drink(drinks)
 
@@ -174,6 +246,7 @@ def main():
             resp = input(f"Do you want to make another drink? (" + Fore.GREEN + f"{YES}" + Fore.RESET + "/" + Fore.RED + f"{NO}" + Fore.RESET + "): ").lower()
         want_coffee = resp == YES
 
+    save_state(express_resources, express_coins)
     print("\n👋 Thank you! See you next time!")
 
 # ---------------------- START ----------------------
