@@ -10,49 +10,49 @@ drinks = [
         "coffee_g": 9,
         "water_ml": 30,
         "milk_ml": 0,
-        "price": 2.5
+        "price_cents": 250
     },
     {
         "name": "Double Espresso",
         "coffee_g": 18,
         "water_ml": 60,
         "milk_ml": 0,
-        "price": 4
+        "price_cents": 400
     },
     {
         "name": "Lungo",
         "coffee_g": 10,
         "water_ml": 100,
         "milk_ml": 0,
-        "price": 4
+        "price_cents": 400
     },
     {
         "name": "Americana",
         "coffee_g": 10,
         "water_ml": 100,
         "milk_ml": 0,
-        "price": 5
+        "price_cents": 500
     },
     {
         "name": "Cappuccino",
         "coffee_g": 9,
         "water_ml": 30,
         "milk_ml": 120,
-        "price": 4
+        "price_cents": 400
     },
     {
         "name": "Latte",
         "coffee_g": 9,
         "water_ml": 30,
         "milk_ml": 200,
-        "price": 3.5
+        "price_cents": 350
     },
     {
         "name": "Flat White",
         "coffee_g": 18,
         "water_ml": 60,
         "milk_ml": 120,
-        "price": 4.5
+        "price_cents": 450
     }
 ]
 
@@ -63,10 +63,10 @@ express_resources = {
 }
 
 express_coins = {
-    "$1": 20,
-    "$5": 20,    
-    "25cent": 20,
-    "50cent": 20,    
-    "10cent": 20
+    100: 20,
+    500: 20,    
+    25: 20,
+    50: 20,    
+    10: 20
 }
 
