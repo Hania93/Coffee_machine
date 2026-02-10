@@ -11,15 +11,33 @@ STATE_FILE = "machine_state.json"
 
 # ---------------------- UTILS ----------------------
 def save_state(resources, coins):
+    """
+    Saves the current state of the machine (resources and coins) to a JSON file.
+    This allows the machine to persist its state across runs, so that resources and coin inventory are maintained even after the program is closed and reopened.        
+    
+    :param resources: Dictionary with keys: coffee_g, water_ml, milk_ml representing current machine resources
+    :param coins: Dictionary with keys: coin_value_cents, value_count representing current coin inventory
+    :return: True if the state was successfully saved, False otherwise
+    """
     state = {
         "resources": resources,
         "coins": coins
     }
     with open(STATE_FILE, 'w', encoding='utf-8') as f:
         json.dump(state, f, indent=2)
-    print("\n💾 Machine state saved.")
+        print("\n💾 Machine state saved.")
+        return True
+    return False
 
 def load_state(default_resources, default_coins):
+    """
+    Loads the saved state of the machine (resources and coins) from a JSON file.
+    If no saved state exists, it returns the default resources and coins.
+    
+    :param default_resources: Default resources dictionary with keys: coffee_g, water_ml, milk_ml representing initial machine resources        
+    :param default_coins: Default coins dictionary with keys: coin_value_cents, value_count representing initial coin inventory
+    :return: Tuple of (resources, coins) where resources is a dictionary with keys: coffee_g, water_ml, milk_ml and coins is a dictionary with keys: coin_value_cents, value_count
+    """
     if not os.path.exists(STATE_FILE):
         print("No saved state found. Starting with initial resources and coins.")
         return copy.deepcopy(default_resources), copy.deepcopy(default_coins)
@@ -72,17 +90,40 @@ def load_state(default_resources, default_coins):
     return resources, coins
 
 def clear_console():
+    """
+    Clears the console screen. Works on both Windows and Unix-based systems.
+        
+    """
     os.system('cls' if os.name == 'nt' else 'clear')
 
-def show_resources(resources):   
+def show_resources(resources):
+    """
+    Displays the current resources of the machine in a user-friendly format.
+    
+    :param resources: Dictionary with keys: coffee_g, water_ml, milk_ml representing current machine resources
+    """   
     print(f"\n[Machine Resources]")
     print(f"Coffee: " + Fore.GREEN + f"{resources['coffee_g']}g" + Fore.RESET + f" | Water: " + Fore.GREEN + f"{resources['water_ml']}ml" + Fore.RESET + f" | Milk: " + Fore.GREEN + f"{resources['milk_ml']}ml\n")
 
 def format_money(amount_cents):
+    """
+    Formats an amount in cents to a string in dollars with 2 decimal places.
+    
+    :param amount_cents: Amount in cents to be formatted
+    :return: Formatted string in dollars with 2 decimal places
+    :rtype: str
+    """
     return f"${amount_cents/100:.2f}"
 
 # ---------------------- DRINK SELECTION ----------------------
 def select_drink(drinks_list):
+    """
+    Displays the menu and allows the user to select a drink.
+    Validates the correctness of the choice.
+    
+    :param drinks_list: List of drink dictionaries with keys: name, coffee_g, water_ml, milk_ml, price_cents
+    :return: The selected drink dictionary
+    """
     clear_console()
     print(Fore.GREEN + f"☕ Welcome to the Coffee Machine ☕\n")
     print(f"Please select a drink:\n")
@@ -103,11 +144,25 @@ def select_drink(drinks_list):
 
 # ---------------------- RESOURCE MANAGEMENT ----------------------
 def can_make_drink(drink, resources):
+    """
+    Checks if the machine has enough resources to make the selected drink.
+    
+    :param drink: Drink dictionary with keys: name, coffee_g, water_ml, milk_ml, price_cents
+    :param resources: Dictionary with keys: coffee_g, water_ml, milk_ml representing current machine resources
+    :return: True if the drink can be made, False otherwise
+    """
     return (drink['coffee_g'] <= resources['coffee_g'] and
             drink['water_ml'] <= resources['water_ml'] and
             drink['milk_ml'] <= resources['milk_ml'])
 
 def check_what_missing(drink, resources):
+    """
+    Checks which specific resources are insufficient to make the selected drink.
+    
+    :param drink: Drink dictionary with keys: name, coffee_g, water_ml, milk_ml, price_cents
+    :param resources: Dictionary with keys: coffee_g, water_ml, milk_ml representing current machine resources
+    :return: List of resource names that are insufficient (e.g., ['coffee', 'milk'])
+    """
     missing = []
     if drink['coffee_g'] > resources['coffee_g']:
         missing.append('coffee')
@@ -120,12 +175,26 @@ def check_what_missing(drink, resources):
     return missing
 
 def refill_resource(resource, resources):
+    """
+    Refills the specified resource to its initial level.
+    
+    :param resource: String name of the resource to refill ('coffee', 'water', or 'milk')
+    :param resources: Dictionary with keys: coffee_g, water_ml, milk_ml representing current machine resources
+    """
     mapping = {'coffee':'coffee_g', 'water':'water_ml', 'milk':'milk_ml'}
     resources[mapping[resource]] = INIT_EKSPRESS_RESOURCES[mapping[resource]]
     print(f"{resource.capitalize()} refilled!")
 
 # ---------------------- PAYMENT ----------------------
 def pay_for_drink(drink, express_coins):
+    """
+    Handles the payment process for the selected drink.
+    Prompts the user to insert coins until the total amount is sufficient.
+    
+    :param drink: Drink dictionary with keys: name, coffee_g, water_ml, milk_ml, price_cents
+    :param express_coins: Dictionary with coin denominations as keys (in cents) and their counts as values representing the machine's coin inventory
+    :return: True if payment is successful, False if cancelled or failed
+    """
     price_cents = drink['price_cents']
 
     print(f"\n💰 Please insert "+Fore.YELLOW + f"{format_money(price_cents)}")
@@ -181,6 +250,16 @@ def pay_for_drink(drink, express_coins):
         return False
 
 def calculate_change(price_cents, inserted_cents, express_coins):
+    """
+    Calculates the change to return to the customer after payment.
+    Uses a greedy algorithm to determine the optimal combination of coins to return.
+    
+    :param price_cents: Price of the drink in cents
+    :param inserted_cents: List of coin denominations (in cents) that the customer has inserted
+    :param express_coins: Dictionary with coin denominations as keys (in cents) and their counts as values representing the machine's coin inventory
+    :return: List of coin denominations (in cents) to return as change
+    :raises ValueError: If exact change cannot be returned with the available coins
+    """
     temp_coins = copy.deepcopy(express_coins)
 
     for c in inserted_cents:
@@ -209,6 +288,13 @@ def calculate_change(price_cents, inserted_cents, express_coins):
 
 # ---------------------- MAKE DRINK ----------------------
 def make_drink(drink, resources):
+    """
+    Deducts the required resources from the machine to make the selected drink.
+    Displays a message to the user and shows the remaining resources.
+    
+    :param drink: Drink dictionary with keys: name, coffee_g, water_ml, milk_ml, price_cents
+    :param resources: Dictionary with keys: coffee_g, water_ml, milk_ml representing current machine resources
+    """
     resources['coffee_g'] -= drink['coffee_g']
     resources['water_ml'] -= drink['water_ml']
     resources['milk_ml'] -= drink['milk_ml']
@@ -217,6 +303,10 @@ def make_drink(drink, resources):
 
 # ---------------------- MAIN LOOP ----------------------
 def main():
+    """
+    Main function that runs the coffee machine program.
+    Handles the main loop of the program, including drink selection, resource checking, payment processing, and state saving/loading.
+    """
     express_resources, express_coins = load_state(DEFAULT_RESOURCES, DEFAULT_COINS)
 
     want_coffee = True
